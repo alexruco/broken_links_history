@@ -38,10 +38,8 @@ def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
                     elif not broken_links_only:
                         links_set.add((url, status))
 
-                logging.info(f"Iteration {i + 1}/{iterations} completed.")
                 time.sleep(1)  # Adding a delay to avoid overwhelming the server
             else:
-                logging.info("No contentful URLs found.")
                 break
         except Exception as e:
             logging.error(f"An error occurred during iteration {i + 1}: {e}")
