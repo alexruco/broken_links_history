@@ -2,8 +2,8 @@
 
 import time
 import logging
-from get_history import get_wayback_urls, filter_urls
-from availability_checker import check_availability
+from waybackmachine_site_pages.get_history import get_wayback_urls, filter_urls
+from waybackmachine_site_pages.availability_checker import check_availability
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
