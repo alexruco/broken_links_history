@@ -3,6 +3,12 @@
 import requests
 import pandas as pd
 from datetime import datetime
+import logging
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_wayback_urls(domain, start_date="19960101", end_date=None):
     """
@@ -21,8 +27,16 @@ def get_wayback_urls(domain, start_date="19960101", end_date=None):
         "collapse": "urlkey"
     }
 
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
+    # Set up session with retries
+    session = requests.Session()
+    retry = Retry(connect=5, backoff_factor=1)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    try:
+        response = session.get(url, params=params, timeout=10)
+        response.raise_for_status()  # Raise an error for bad status codes
         data = response.json()
         if len(data) > 1:
             # Convert to DataFrame and filter
@@ -30,8 +44,8 @@ def get_wayback_urls(domain, start_date="19960101", end_date=None):
             return df
         else:
             return pd.DataFrame(columns=["original"])
-    else:
-        print("Error fetching data:", response.status_code)
+    except requests.RequestException as e:
+        logging.error(f"Error fetching data: {e}")
         return pd.DataFrame(columns=["original"])
 
 def filter_urls(df):
