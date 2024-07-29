@@ -7,7 +7,7 @@ import time
 import urllib3
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -43,8 +43,10 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
 
     for retry in range(max_retries):
         try:
+            logging.debug(f"Checking URL: {url}")
             # Use GET instead of HEAD
             response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
+            logging.debug(f"URL: {url}, Status Code: {response.status_code}")
             return url, response.status_code
         except requests.exceptions.Timeout as e:
             logging.error(f"Timeout error checking URL {url}: {e}")
@@ -79,6 +81,7 @@ def check_availability(urls, max_workers=10, broken_links_only=True):
         for future in futures:
             url, status = future.result()
             if status is not None:
+                logging.debug(f"Checked URL: {url}, Status: {status}")
                 if broken_links_only and status == 404:
                     urls_with_status.append((url, status))
                 elif not broken_links_only:
