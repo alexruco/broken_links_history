@@ -38,6 +38,8 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
             logging.error(f"Timeout error checking URL {url}: {e}")
         except requests.exceptions.SSLError as e:
             logging.error(f"SSL error checking URL {url}: {e}")
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"Connection error checking URL {url}: {e}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Error checking URL {url}: {e}")
 
