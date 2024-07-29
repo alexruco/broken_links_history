@@ -12,6 +12,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Define headers to emulate a browser
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1'
+}
+
 def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
     """
     Check the status of a URL with retry and backoff, avoiding SSL errors by not converting port-specific HTTP URLs to HTTPS.
@@ -32,7 +42,7 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
     for retry in range(max_retries):
         try:
             # Use GET instead of HEAD
-            response = requests.get(url, allow_redirects=True, timeout=timeout, verify=False)
+            response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
             return url, response.status_code
         except requests.exceptions.Timeout as e:
             logging.error(f"Timeout error checking URL {url}: {e}")
