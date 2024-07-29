@@ -36,8 +36,10 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
         tuple: The URL and its status code or None if it failed.
     """
     # Convert HTTP URLs to HTTPS unless they specify port 80
-    if url.startswith("http://") and not url.startswith("http://") + url.split('/')[2].split(':')[0] + ":80":
-        url = "https://" + url[7:]
+    if url.startswith("http://"):
+        hostname = url.split('/')[2]
+        if ":80" not in hostname:
+            url = "https://" + url[7:]
 
     for retry in range(max_retries):
         try:
