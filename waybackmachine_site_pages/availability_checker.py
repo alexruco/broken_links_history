@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-def check_url(url, max_retries=3, backoff_factor=0.3):
+def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
     """
     Check the status of a URL with retry and backoff, avoiding SSL errors by not converting port-specific HTTP URLs to HTTPS.
 
@@ -20,6 +20,7 @@ def check_url(url, max_retries=3, backoff_factor=0.3):
         url (str): The URL to check.
         max_retries (int): The maximum number of retries.
         backoff_factor (float): The backoff factor for exponential backoff.
+        timeout (int): The timeout for the request.
 
     Returns:
         tuple: The URL and its status code or None if it failed.
@@ -30,14 +31,18 @@ def check_url(url, max_retries=3, backoff_factor=0.3):
 
     for retry in range(max_retries):
         try:
-            response = requests.head(url, allow_redirects=True, timeout=10, verify=False)
+            # Use GET instead of HEAD
+            response = requests.get(url, allow_redirects=True, timeout=timeout, verify=False)
             return url, response.status_code
+        except requests.exceptions.Timeout as e:
+            logging.error(f"Timeout error checking URL {url}: {e}")
         except requests.exceptions.SSLError as e:
             logging.error(f"SSL error checking URL {url}: {e}")
-            return url, None
         except requests.exceptions.RequestException as e:
             logging.error(f"Error checking URL {url}: {e}")
-            time.sleep(backoff_factor * (2 ** retry))  # Exponential backoff
+
+        # Exponential backoff
+        time.sleep(backoff_factor * (2 ** retry))
 
     return url, None
 
