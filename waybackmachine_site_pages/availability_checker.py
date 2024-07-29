@@ -33,7 +33,7 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
         timeout (int): The timeout for the request.
 
     Returns:
-        tuple: The URL and its status code or None if it failed.
+        tuple: The URL, its status code, and any redirects that occurred.
     """
     # Convert HTTP URLs to HTTPS unless they specify port 80
     if url.startswith("http://"):
@@ -48,12 +48,19 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
             response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
             
             # Log any redirects
+            redirects = []
             if response.history:
                 for resp in response.history:
+                    redirect_info = {
+                        'from': resp.url,
+                        'to': response.url,
+                        'status_code': resp.status_code
+                    }
+                    redirects.append(redirect_info)
                     logging.debug(f"Redirected from {resp.url} to {response.url} with status {resp.status_code}")
 
             logging.debug(f"Final URL: {response.url}, Status Code: {response.status_code}")
-            return url, response.status_code
+            return url, response.status_code, redirects
         except requests.exceptions.Timeout as e:
             logging.error(f"Timeout error checking URL {url}: {e}")
         except requests.exceptions.SSLError as e:
@@ -66,7 +73,7 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
         # Exponential backoff
         time.sleep(backoff_factor * (2 ** retry))
 
-    return url, None
+    return url, None, []
 
 def check_availability(urls, max_workers=10, broken_links_only=True):
     """
@@ -78,19 +85,24 @@ def check_availability(urls, max_workers=10, broken_links_only=True):
         broken_links_only (bool): Whether to return only broken links.
 
     Returns:
-        list: List of tuples containing URLs and their status codes.
+        list: List of dictionaries containing URLs, their status codes, and any redirects.
     """
     urls_with_status = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(check_url, url): url for url in urls}
         for future in futures:
-            url, status = future.result()
+            url, status, redirects = future.result()
             if status is not None:
-                logging.debug(f"Checked URL: {url}, Status: {status}")
+                logging.debug(f"Checked URL: {url}, Status: {status}, Redirects: {redirects}")
+                url_info = {
+                    'url': url,
+                    'status': status,
+                    'redirects': redirects
+                }
                 if broken_links_only and status == 404:
-                    urls_with_status.append((url, status))
+                    urls_with_status.append(url_info)
                 elif not broken_links_only:
-                    urls_with_status.append((url, status))
+                    urls_with_status.append(url_info)
 
     return urls_with_status
