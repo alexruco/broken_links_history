@@ -6,6 +6,12 @@ import logging
 import time
 import urllib3
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Define headers to emulate a browser
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -15,9 +21,6 @@ HEADERS = {
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1'
 }
-
-# Disable SSL warnings
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
     """
@@ -43,7 +46,13 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
             logging.debug(f"Checking URL: {url}")
             # Use GET instead of HEAD
             response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
-            logging.debug(f"URL: {url}, Status Code: {response.status_code}")
+            
+            # Log any redirects
+            if response.history:
+                for resp in response.history:
+                    logging.debug(f"Redirected from {resp.url} to {response.url} with status {resp.status_code}")
+
+            logging.debug(f"Final URL: {response.url}, Status Code: {response.status_code}")
             return url, response.status_code
         except requests.exceptions.Timeout as e:
             logging.error(f"Timeout error checking URL {url}: {e}")
@@ -85,4 +94,3 @@ def check_availability(urls, max_workers=10, broken_links_only=True):
                     urls_with_status.append((url, status))
 
     return urls_with_status
-    
