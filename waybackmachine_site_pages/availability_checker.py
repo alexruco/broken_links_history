@@ -14,7 +14,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def check_url(url, max_retries=3, backoff_factor=0.3):
     """
-    Check the status of a URL with retry and backoff, always trying HTTPS.
+    Check the status of a URL with retry and backoff, avoiding SSL errors by not converting port-specific HTTP URLs to HTTPS.
 
     Args:
         url (str): The URL to check.
@@ -24,8 +24,8 @@ def check_url(url, max_retries=3, backoff_factor=0.3):
     Returns:
         tuple: The URL and its status code or None if it failed.
     """
-    # Convert HTTP URLs to HTTPS
-    if url.startswith("http://"):
+    # Convert HTTP URLs to HTTPS unless they specify port 80
+    if url.startswith("http://") and not url.startswith("http://") + url.split('/')[2].split(':')[0] + ":80":
         url = "https://" + url[7:]
 
     for retry in range(max_retries):
