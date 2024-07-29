@@ -4,9 +4,13 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import time
+import urllib3
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def check_url(url, max_retries=3, backoff_factor=0.3):
     """
@@ -26,9 +30,12 @@ def check_url(url, max_retries=3, backoff_factor=0.3):
 
     for retry in range(max_retries):
         try:
-            response = requests.head(url, allow_redirects=True, timeout=10)
+            response = requests.head(url, allow_redirects=True, timeout=10, verify=False)
             return url, response.status_code
-        except requests.RequestException as e:
+        except requests.exceptions.SSLError as e:
+            logging.error(f"SSL error checking URL {url}: {e}")
+            return url, None
+        except requests.exceptions.RequestException as e:
             logging.error(f"Error checking URL {url}: {e}")
             time.sleep(backoff_factor * (2 ** retry))  # Exponential backoff
 
