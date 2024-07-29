@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def check_url(url, max_retries=3, backoff_factor=0.3):
     """
-    Check the status of a URL with retry and backoff.
+    Check the status of a URL with retry and backoff, always trying HTTPS.
 
     Args:
         url (str): The URL to check.
@@ -20,6 +20,10 @@ def check_url(url, max_retries=3, backoff_factor=0.3):
     Returns:
         tuple: The URL and its status code or None if it failed.
     """
+    # Convert HTTP URLs to HTTPS
+    if url.startswith("http://"):
+        url = "https://" + url[7:]
+
     for retry in range(max_retries):
         try:
             response = requests.head(url, allow_redirects=True, timeout=10)
