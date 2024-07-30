@@ -1,12 +1,7 @@
-# waybackmachine_pages.py
-
 import time
+from get_history import get_wayback_urls, filter_urls
+from availability_checker import check_availability
 import logging
-from waybackmachine_site_pages.get_history import get_wayback_urls, filter_urls
-from waybackmachine_site_pages.availability_checker import check_availability
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
     """
@@ -25,44 +20,36 @@ def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
     for i in range(iterations):
         try:
             urls_df = get_wayback_urls(domain)
+            logging.debug(f"Iteration {i + 1}: Retrieved URLs DataFrame: {urls_df}")
+
             filtered_urls_df = filter_urls(urls_df)
+            logging.debug(f"Iteration {i + 1}: Filtered URLs DataFrame: {filtered_urls_df}")
 
             if not filtered_urls_df.empty:
                 urls = filtered_urls_df["original"].tolist()
-                urls_with_status = check_availability(urls, max_workers=iterations, broken_links_only=broken_links_only)
-                
+                logging.debug(f"Iteration {i + 1}: URLs to Check: {urls}")
+
+                urls_with_status = check_availability(urls, access_type='requests', max_workers=iterations, broken_links_only=broken_links_only)
+                logging.debug(f"Iteration {i + 1}: URLs with Status: {urls_with_status}")
+
+                # Adjusted to handle possible multiple return values
                 for url_status in urls_with_status:
-                    url, status = url_status[0], url_status[1]
+                    url = url_status[0]
+                    status = url_status[1]
+
                     if broken_links_only and status == 404:
                         links_set.add((url, status))
                     elif not broken_links_only:
                         links_set.add((url, status))
 
+                logging.info(f"Iteration {i + 1}/{iterations} completed.")
                 time.sleep(1)  # Adding a delay to avoid overwhelming the server
             else:
+                logging.info("No contentful URLs found.")
                 break
+
         except Exception as e:
             logging.error(f"An error occurred during iteration {i + 1}: {e}")
             break
 
     return links_set
-
-def display_urls(links_set):
-    """
-    Displays the URLs and their status.
-
-    Args:
-        links_set (set): A set of tuples containing URLs and their status codes.
-    """
-    if links_set:
-        logging.info("\nURLs:")
-        for url, status in links_set:
-            logging.info(f"{url} - Status: {status}")
-    else:
-        logging.info("No URLs found.")
-
-# Example usage
-if __name__ == "__main__":
-    domain = "marketividade.com"
-    broken_links = waybackmachine_pages(domain, iterations=1, broken_links_only=True)
-    display_urls(broken_links)
