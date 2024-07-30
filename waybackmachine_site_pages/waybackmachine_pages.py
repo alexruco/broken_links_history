@@ -52,3 +52,17 @@ def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
             break
 
     return links_set
+
+def display_urls(links_set):
+    """
+    Display the URLs and their status.
+
+    Args:
+        links_set (set): A set of tuples containing URLs and their status codes.
+    """
+    if links_set:
+        print("\nURLs:")
+        for url, status in links_set:
+            print(f"{url} - Status: {status}")
+    else:
+        print("No URLs found.")
