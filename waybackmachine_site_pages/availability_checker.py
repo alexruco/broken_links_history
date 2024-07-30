@@ -5,6 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import time
 import urllib3
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,9 +25,43 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1'
 }
 
+def check_url_with_requests(url, timeout=20):
+    try:
+        response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
+        redirects = []
+        if response.history:
+            for resp in response.history:
+                redirect_info = {
+                    'from': resp.url,
+                    'to': response.url,
+                    'status_code': resp.status_code
+                }
+                redirects.append(redirect_info)
+                logging.debug(f"Redirected from {resp.url} to {response.url} with status {resp.status_code}")
+        logging.debug(f"Final URL: {response.url}, Status Code: {response.status_code}")
+        return url, response.status_code, redirects
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error checking URL with requests: {url}: {e}")
+        return url, None, []
+
+def check_url_with_selenium(url):
+    try:
+        options = Options()
+        options.headless = True
+        driver = webdriver.Chrome(options=options, executable_path='/path/to/chromedriver')
+        driver.get(url)
+        time.sleep(5)
+        final_url = driver.current_url
+        status_code = 200  # Simplified example, Selenium does not return status codes directly
+        driver.quit()
+        return url, status_code, [{'from': url, 'to': final_url, 'status_code': 200}]
+    except Exception as e:
+        logging.error(f"Error checking URL with Selenium: {url}: {e}")
+        return url, None, []
+
 def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
     """
-    Check the status of a URL with retry and backoff, avoiding SSL errors by not converting port-specific HTTP URLs to HTTPS.
+    Check the status of a URL with retry and backoff, first using requests and then falling back to Selenium.
 
     Args:
         url (str): The URL to check.
@@ -42,38 +79,14 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
             url = "https://" + url[7:]
 
     for retry in range(max_retries):
-        try:
-            logging.debug(f"Checking URL: {url}")
-            # Use GET instead of HEAD
-            response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
-            
-            # Log any redirects
-            redirects = []
-            if response.history:
-                for resp in response.history:
-                    redirect_info = {
-                        'from': resp.url,
-                        'to': response.url,
-                        'status_code': resp.status_code
-                    }
-                    redirects.append(redirect_info)
-                    logging.debug(f"Redirected from {resp.url} to {response.url} with status {resp.status_code}")
-
-            logging.debug(f"Final URL: {response.url}, Status Code: {response.status_code}")
-            return url, response.status_code, redirects
-        except requests.exceptions.Timeout as e:
-            logging.error(f"Timeout error checking URL {url}: {e}")
-        except requests.exceptions.SSLError as e:
-            logging.error(f"SSL error checking URL {url}: {e}")
-        except requests.exceptions.ConnectionError as e:
-            logging.error(f"Connection error checking URL {url}: {e}")
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Error checking URL {url}: {e}")
-
-        # Exponential backoff
+        url, status_code, history = check_url_with_requests(url, timeout)
+        if status_code is not None:
+            return url, status_code, history
+        logging.debug(f"Retry {retry + 1} for URL: {url}")
         time.sleep(backoff_factor * (2 ** retry))
 
-    return url, None, []
+    # Fall back to Selenium if requests fail
+    return check_url_with_selenium(url)
 
 def check_availability(urls, max_workers=10, broken_links_only=True):
     """
