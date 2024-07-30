@@ -127,9 +127,10 @@ def check_availability(urls, access_type='requests', max_workers=10, broken_link
                     'status': status,
                     'redirects': redirects
                 }
-                if broken_links_only and status == 404:
-                    urls_with_status.append(url_info)
-                elif not broken_links_only:
+                if broken_links_only:
+                    if status == 404:
+                        urls_with_status.append(url_info)
+                else:
                     urls_with_status.append(url_info)
 
     return urls_with_status
