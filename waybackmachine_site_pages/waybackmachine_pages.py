@@ -1,3 +1,13 @@
+# waybackmachine_pages.py
+
+import time
+import logging
+from waybackmachine_site_pages.get_history import get_wayback_urls, filter_urls
+from waybackmachine_site_pages.availability_checker import check_availability
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 import time
 from get_history import get_wayback_urls, filter_urls
 from availability_checker import check_availability
@@ -53,3 +63,18 @@ def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
             break
 
     return links_set
+
+def display_urls(links_set):
+    """
+    Displays the URLs and their status.
+
+    Args:
+        links_set (set): A set of tuples containing URLs and their status codes.
+    """
+    if links_set:
+        logging.info("\nURLs:")
+        for url, status in links_set:
+            logging.info(f"{url} - Status: {status}")
+    else:
+        logging.info("No URLs found.")
+
