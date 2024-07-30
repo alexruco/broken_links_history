@@ -8,6 +8,8 @@ import urllib3
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+import random
+import string
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,8 +27,23 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1'
 }
 
-# List of keywords to detect potential 404 pages
-NOT_FOUND_KEYWORDS = ['404', 'page not found', 'not found', 'error', 'not be found']
+# Generate a random hash
+def generate_random_hash(length=8):
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
+# Check how the site handles non-existing pages
+def get_non_existing_page_redirect(url, timeout=20):
+    random_hash = generate_random_hash()
+    non_existing_url = f"{url.rstrip('/')}/{random_hash}/"
+    try:
+        response = requests.get(non_existing_url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
+        if response.history:
+            final_url = response.url
+            return final_url
+        return non_existing_url
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error checking non-existing URL: {non_existing_url}: {e}")
+        return None
 
 def check_url_with_requests(url, timeout=20):
     try:
@@ -59,23 +76,22 @@ def check_url_with_selenium(url):
         driver.quit()
         
         status_code = 200
-        for keyword in NOT_FOUND_KEYWORDS:
-            if keyword in page_source:
-                status_code = 404
-                break
-
+        if any(keyword in page_source for keyword in NOT_FOUND_KEYWORDS):
+            status_code = 404
+        
         return url, status_code, [{'from': url, 'to': final_url, 'status_code': status_code}]
     except Exception as e:
         logging.error(f"Error checking URL with Selenium: {url}: {e}")
         return url, None, []
 
-def check_url(url, access_type='requests', max_retries=3, backoff_factor=0.3, timeout=20):
+def check_url(url, access_type='requests', non_existing_url_redirect=None, max_retries=3, backoff_factor=0.3, timeout=20):
     """
     Check the status of a URL with retry and backoff, using the specified access method (requests or selenium).
 
     Args:
         url (str): The URL to check.
         access_type (str): The type of access method to use ('requests' or 'selenium').
+        non_existing_url_redirect (str): The URL to which non-existing pages redirect.
         max_retries (int): The maximum number of retries.
         backoff_factor (float): The backoff factor for exponential backoff.
         timeout (int): The timeout for the request.
@@ -83,7 +99,6 @@ def check_url(url, access_type='requests', max_retries=3, backoff_factor=0.3, ti
     Returns:
         tuple: The URL, its status code, and any redirects that occurred.
     """
-    # Convert HTTP URLs to HTTPS unless they specify port 80
     if url.startswith("http://"):
         hostname = url.split('/')[2]
         if ":80" not in hostname:
@@ -93,6 +108,8 @@ def check_url(url, access_type='requests', max_retries=3, backoff_factor=0.3, ti
         for retry in range(max_retries):
             url, status_code, history = check_url_with_requests(url, timeout)
             if status_code is not None:
+                if non_existing_url_redirect and url in [r['to'] for r in history]:
+                    status_code = 404
                 return url, status_code, history
             logging.debug(f"Retry {retry + 1} for URL: {url}")
             time.sleep(backoff_factor * (2 ** retry))
@@ -101,13 +118,14 @@ def check_url(url, access_type='requests', max_retries=3, backoff_factor=0.3, ti
 
     return url, None, []
 
-def check_availability(urls, access_type='requests', max_workers=10, broken_links_only=True):
+def check_availability(urls, access_type='requests', non_existing_url_redirect=None, max_workers=10, broken_links_only=True):
     """
     Check the availability of a list of URLs.
 
     Args:
         urls (list): List of URLs to check.
         access_type (str): The type of access method to use ('requests' or 'selenium').
+        non_existing_url_redirect (str): The URL to which non-existing pages redirect.
         max_workers (int): Maximum number of concurrent workers.
         broken_links_only (bool): Whether to return only broken links.
 
@@ -117,7 +135,7 @@ def check_availability(urls, access_type='requests', max_workers=10, broken_link
     urls_with_status = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(check_url, url, access_type): url for url in urls}
+        futures = {executor.submit(check_url, url, access_type, non_existing_url_redirect): url for url in urls}
         for future in futures:
             url, status, redirects = future.result()
             if status is not None:
@@ -130,7 +148,9 @@ def check_availability(urls, access_type='requests', max_workers=10, broken_link
                 if broken_links_only:
                     if status == 404:
                         urls_with_status.append(url_info)
+                        print(f"Broken Link Found: {url_info}")
                 else:
                     urls_with_status.append(url_info)
 
+    print(f"URLs with Status: {urls_with_status}")
     return urls_with_status

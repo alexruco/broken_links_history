@@ -2,7 +2,7 @@ import os
 import json
 import sys
 from datetime import datetime
-from waybackmachine_site_pages import waybackmachine_pages, check_availability
+from waybackmachine_site_pages import waybackmachine_pages, check_availability, get_non_existing_page_redirect
 
 def save_to_json(domain, links_set):
     """
@@ -48,6 +48,10 @@ def display_urls(links_set):
 
 def main(domain, iterations, broken_links_only):
     try:
+        # Determine the redirect URL for non-existing pages
+        non_existing_url_redirect = get_non_existing_page_redirect(domain)
+        print(f"Non-existing pages redirect to: {non_existing_url_redirect}")
+
         # Step 1: Discover URLs using waybackmachine_pages
         discovered_urls = waybackmachine_pages(domain, iterations=iterations, broken_links_only=broken_links_only)
         print(f"Discovered URLs: {discovered_urls}")
@@ -59,7 +63,7 @@ def main(domain, iterations, broken_links_only):
         # Step 2: Check availability using requests
         urls_list = [url for url, status in discovered_urls]
         print(f"URLs List: {urls_list}")
-        checked_urls_requests = check_availability(urls_list, access_type='requests', max_workers=10, broken_links_only=broken_links_only)
+        checked_urls_requests = check_availability(urls_list, access_type='requests', non_existing_url_redirect=non_existing_url_redirect, max_workers=10, broken_links_only=broken_links_only)
         print(f"Checked URLs with requests: {checked_urls_requests}")
 
         # Filter out URLs that failed with requests
@@ -71,7 +75,7 @@ def main(domain, iterations, broken_links_only):
 
         # Step 3: Check availability using selenium for failed URLs
         if failed_urls:
-            checked_urls_selenium = check_availability(failed_urls, access_type='selenium', max_workers=10, broken_links_only=broken_links_only)
+            checked_urls_selenium = check_availability(failed_urls, access_type='selenium', non_existing_url_redirect=non_existing_url_redirect, max_workers=10, broken_links_only=broken_links_only)
             successful_urls.extend(checked_urls_selenium)
             print(f"Successful URLs with selenium: {checked_urls_selenium}")
 
