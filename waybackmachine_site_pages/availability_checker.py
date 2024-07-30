@@ -25,6 +25,9 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1'
 }
 
+# List of keywords to detect potential anti-bot pages
+ANTI_BOT_KEYWORDS = ['captcha', 'robot', 'bot', 'verification', 'cloudflare', 'incapsula']
+
 def check_url_with_requests(url, timeout=20):
     try:
         response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
@@ -38,6 +41,10 @@ def check_url_with_requests(url, timeout=20):
                 }
                 redirects.append(redirect_info)
                 logging.debug(f"Redirected from {resp.url} to {response.url} with status {resp.status_code}")
+        # Check for anti-robot keywords in the response content
+        if any(keyword in response.text.lower() for keyword in ANTI_BOT_KEYWORDS):
+            logging.debug(f"Potential anti-robot mechanism detected for URL: {url}")
+            return url, None, redirects
         logging.debug(f"Final URL: {response.url}, Status Code: {response.status_code}")
         return url, response.status_code, redirects
     except requests.exceptions.RequestException as e:
@@ -85,7 +92,7 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
         logging.debug(f"Retry {retry + 1} for URL: {url}")
         time.sleep(backoff_factor * (2 ** retry))
 
-    # Fall back to Selenium if requests fail
+    # Fall back to Selenium if requests fail or detect potential anti-bot mechanisms
     return check_url_with_selenium(url)
 
 def check_availability(urls, max_workers=10, broken_links_only=True):
