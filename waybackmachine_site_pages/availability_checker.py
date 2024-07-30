@@ -25,6 +25,9 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1'
 }
 
+# List of keywords to detect potential 404 pages
+NOT_FOUND_KEYWORDS = ['404', 'page not found', 'not found', 'error', 'not be found']
+
 def check_url_with_requests(url, timeout=20):
     try:
         response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
@@ -51,10 +54,17 @@ def check_url_with_selenium(url):
         driver = webdriver.Chrome(options=options, executable_path='/path/to/chromedriver')
         driver.get(url)
         time.sleep(5)
+        page_source = driver.page_source.lower()
         final_url = driver.current_url
-        status_code = 200  # Simplified example, Selenium does not return status codes directly
         driver.quit()
-        return url, status_code, [{'from': url, 'to': final_url, 'status_code': 200}]
+        
+        status_code = 200
+        for keyword in NOT_FOUND_KEYWORDS:
+            if keyword in page_source:
+                status_code = 404
+                break
+
+        return url, status_code, [{'from': url, 'to': final_url, 'status_code': status_code}]
     except Exception as e:
         logging.error(f"Error checking URL with Selenium: {url}: {e}")
         return url, None, []
