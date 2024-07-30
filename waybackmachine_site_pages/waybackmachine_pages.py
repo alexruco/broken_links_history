@@ -1,10 +1,8 @@
 import time
 import random
 import string
-import requests
 from get_history import get_wayback_urls, filter_urls
 from availability_checker import check_availability, get_non_existing_page_redirect
-import logging
 
 def generate_random_hash(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
