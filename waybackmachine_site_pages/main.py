@@ -1,8 +1,10 @@
+# main.py
+
 import os
 import json
 import sys
 from datetime import datetime
-from waybackmachine_site_pages import waybackmachine_pages, check_availability, get_non_existing_page_redirect
+from waybackmachine_site_pages import waybackmachine_pages, check_availability, get_non_existing_page_redirect, display_urls
 
 def save_to_json(domain, links_set):
     """
@@ -31,20 +33,6 @@ def save_to_json(domain, links_set):
         print(f"Results saved to {file_path}")
     except Exception as e:
         print(f"Error saving to JSON: {e}")
-
-def display_urls(links_set):
-    """
-    Display the URLs and their status.
-
-    Args:
-        links_set (set): A set of tuples containing URLs and their status codes.
-    """
-    if links_set:
-        print("\nURLs:")
-        for url, status in links_set:
-            print(f"{url} - Status: {status}")
-    else:
-        print("No URLs found.")
 
 def main(domain, iterations, broken_links_only):
     try:

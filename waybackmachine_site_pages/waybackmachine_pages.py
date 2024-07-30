@@ -1,8 +1,11 @@
+# waybackmachine_pages.py
+
 import time
 import random
 import string
+import requests
 from get_history import get_wayback_urls, filter_urls
-from availability_checker import check_availability, get_non_existing_page_redirect
+from availability_checker import check_availability, get_non_existing_page_redirect, HEADERS
 
 def generate_random_hash(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
@@ -70,3 +73,17 @@ def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
             break
 
     return links_set
+
+def display_urls(links_set):
+    """
+    Displays the URLs and their status.
+
+    Args:
+        links_set (set): A set of tuples containing URLs and their status codes.
+    """
+    if links_set:
+        print("\nURLs:")
+        for url, status in links_set:
+            print(f"{url} - Status: {status}")
+    else:
+        print("No URLs found.")
