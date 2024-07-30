@@ -2,7 +2,7 @@ import os
 import json
 import sys
 from datetime import datetime
-from waybackmachine_pages import waybackmachine_pages, check_availability
+from waybackmachine_site_pages import waybackmachine_pages, check_availability
 import logging
 
 # Configure logging to output to both console and a log file
@@ -42,29 +42,40 @@ def save_to_json(domain, links_set):
     print(f"Results saved to {file_path}")
 
 def main(domain):
-    # Step 1: Discover URLs using waybackmachine_pages
-    discovered_urls = waybackmachine_pages(domain, iterations=10, broken_links_only=False)
-    logging.debug(f"Discovered URLs: {discovered_urls}")
+    try:
+        # Step 1: Discover URLs using waybackmachine_pages
+        discovered_urls = waybackmachine_pages(domain, iterations=10, broken_links_only=False)
+        logging.debug(f"Discovered URLs: {discovered_urls}")
 
-    # Step 2: Check availability using requests
-    urls_list = [url for url, status in discovered_urls]
-    checked_urls_requests = check_availability(urls_list, access_type='requests', max_workers=10, broken_links_only=False)
-    
-    # Filter out URLs that failed with requests
-    failed_urls = [url_info['url'] for url_info in checked_urls_requests if url_info['status'] is None]
-    successful_urls = [url_info for url_info in checked_urls_requests if url_info['status'] is not None]
-    
-    logging.debug(f"Failed URLs with requests: {failed_urls}")
-    logging.debug(f"Successful URLs with requests: {successful_urls}")
+        # Ensure discovered_urls is a list of tuples
+        if not isinstance(discovered_urls, set):
+            raise ValueError("Expected discovered_urls to be a set of tuples")
 
-    # Step 3: Check availability using selenium for failed URLs
-    if failed_urls:
-        checked_urls_selenium = check_availability(failed_urls, access_type='selenium', max_workers=10, broken_links_only=False)
-        successful_urls.extend(checked_urls_selenium)
-        logging.debug(f"Successful URLs with selenium: {checked_urls_selenium}")
+        # Step 2: Check availability using requests
+        urls_list = [url for url, status in discovered_urls]
+        logging.debug(f"URLs List: {urls_list}")
+        checked_urls_requests = check_availability(urls_list, access_type='requests', max_workers=10, broken_links_only=False)
+        logging.debug(f"Checked URLs with requests: {checked_urls_requests}")
 
-    # Step 4: Save results to JSON file
-    save_to_json(domain, successful_urls)
+        # Filter out URLs that failed with requests
+        failed_urls = [url_info['url'] for url_info in checked_urls_requests if url_info['status'] is None]
+        successful_urls = [url_info for url_info in checked_urls_requests if url_info['status'] is not None]
+
+        logging.debug(f"Failed URLs with requests: {failed_urls}")
+        logging.debug(f"Successful URLs with requests: {successful_urls}")
+
+        # Step 3: Check availability using selenium for failed URLs
+        if failed_urls:
+            checked_urls_selenium = check_availability(failed_urls, access_type='selenium', max_workers=10, broken_links_only=False)
+            successful_urls.extend(checked_urls_selenium)
+            logging.debug(f"Successful URLs with selenium: {checked_urls_selenium}")
+
+        # Step 4: Save results to JSON file
+        save_to_json(domain, successful_urls)
+
+    except Exception as e:
+        logging.error(f"An error occurred during execution: {e}")
+        save_to_json(domain, [])
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
