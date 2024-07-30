@@ -2,7 +2,7 @@ import os
 import json
 import sys
 from datetime import datetime
-from waybackmachine_site_pages import waybackmachine_pages, check_availability
+from waybackmachine_pages import waybackmachine_pages, check_availability
 import logging
 
 # Configure logging to output to both console and a log file
