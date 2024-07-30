@@ -1,6 +1,26 @@
 import time
+import random
+import string
+import requests
 from get_history import get_wayback_urls, filter_urls
-from availability_checker import check_availability
+from availability_checker import check_availability, get_non_existing_page_redirect
+import logging
+
+def generate_random_hash(length=8):
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
+def get_non_existing_page_redirect(domain, timeout=20):
+    random_hash = generate_random_hash()
+    non_existing_url = f"https://{domain.rstrip('/')}/{random_hash}/"
+    try:
+        response = requests.get(non_existing_url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
+        if response.history:
+            final_url = response.url
+            return final_url
+        return non_existing_url
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error checking non-existing URL: {non_existing_url}: {e}")
+        return None
 
 def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
     """
@@ -52,17 +72,3 @@ def waybackmachine_pages(domain, iterations=10, broken_links_only=True):
             break
 
     return links_set
-
-def display_urls(links_set):
-    """
-    Display the URLs and their status.
-
-    Args:
-        links_set (set): A set of tuples containing URLs and their status codes.
-    """
-    if links_set:
-        print("\nURLs:")
-        for url, status in links_set:
-            print(f"{url} - Status: {status}")
-    else:
-        print("No URLs found.")
