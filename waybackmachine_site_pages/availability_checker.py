@@ -25,9 +25,6 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1'
 }
 
-# List of keywords to detect potential anti-bot pages
-ANTI_BOT_KEYWORDS = ['captcha', 'robot', 'bot', 'verification', 'cloudflare', 'incapsula']
-
 def check_url_with_requests(url, timeout=20):
     try:
         response = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=timeout, verify=False)
@@ -41,10 +38,6 @@ def check_url_with_requests(url, timeout=20):
                 }
                 redirects.append(redirect_info)
                 logging.debug(f"Redirected from {resp.url} to {response.url} with status {resp.status_code}")
-        # Check for anti-robot keywords in the response content
-        if any(keyword in response.text.lower() for keyword in ANTI_BOT_KEYWORDS):
-            logging.debug(f"Potential anti-robot mechanism detected for URL: {url}")
-            return url, None, redirects
         logging.debug(f"Final URL: {response.url}, Status Code: {response.status_code}")
         return url, response.status_code, redirects
     except requests.exceptions.RequestException as e:
@@ -66,12 +59,13 @@ def check_url_with_selenium(url):
         logging.error(f"Error checking URL with Selenium: {url}: {e}")
         return url, None, []
 
-def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
+def check_url(url, access_type='requests', max_retries=3, backoff_factor=0.3, timeout=20):
     """
-    Check the status of a URL with retry and backoff, first using requests and then falling back to Selenium.
+    Check the status of a URL with retry and backoff, using the specified access method (requests or selenium).
 
     Args:
         url (str): The URL to check.
+        access_type (str): The type of access method to use ('requests' or 'selenium').
         max_retries (int): The maximum number of retries.
         backoff_factor (float): The backoff factor for exponential backoff.
         timeout (int): The timeout for the request.
@@ -85,22 +79,25 @@ def check_url(url, max_retries=3, backoff_factor=0.3, timeout=20):
         if ":80" not in hostname:
             url = "https://" + url[7:]
 
-    for retry in range(max_retries):
-        url, status_code, history = check_url_with_requests(url, timeout)
-        if status_code is not None:
-            return url, status_code, history
-        logging.debug(f"Retry {retry + 1} for URL: {url}")
-        time.sleep(backoff_factor * (2 ** retry))
+    if access_type == 'requests':
+        for retry in range(max_retries):
+            url, status_code, history = check_url_with_requests(url, timeout)
+            if status_code is not None:
+                return url, status_code, history
+            logging.debug(f"Retry {retry + 1} for URL: {url}")
+            time.sleep(backoff_factor * (2 ** retry))
+    elif access_type == 'selenium':
+        return check_url_with_selenium(url)
 
-    # Fall back to Selenium if requests fail or detect potential anti-bot mechanisms
-    return check_url_with_selenium(url)
+    return url, None, []
 
-def check_availability(urls, max_workers=10, broken_links_only=True):
+def check_availability(urls, access_type='requests', max_workers=10, broken_links_only=True):
     """
     Check the availability of a list of URLs.
 
     Args:
         urls (list): List of URLs to check.
+        access_type (str): The type of access method to use ('requests' or 'selenium').
         max_workers (int): Maximum number of concurrent workers.
         broken_links_only (bool): Whether to return only broken links.
 
@@ -110,7 +107,7 @@ def check_availability(urls, max_workers=10, broken_links_only=True):
     urls_with_status = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(check_url, url): url for url in urls}
+        futures = {executor.submit(check_url, url, access_type): url for url in urls}
         for future in futures:
             url, status, redirects = future.result()
             if status is not None:
